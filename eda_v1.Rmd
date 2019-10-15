@@ -1,0 +1,37 @@
+---
+title: "eda"
+author: "YZ&BS"
+date: "10/14/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Loading libraries
+```{r}
+library(dplyr)
+library(here)
+library(ggplot2)
+library(tidyr)
+library(ggthemes)
+```
+
+## Reading in the datafiles
+
+```{r}
+# set relative brewery file path as variable
+beers_csv <- here("project_files", "Beers.csv")
+breweries_csv <- here("project_files", "Breweries.csv")
+
+# initialize dataframes
+beers <- data.frame(read.csv(beers_csv))
+breweries <- data.frame(read.csv(breweries_csv))
+
+head(beers)
+head(breweries)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
