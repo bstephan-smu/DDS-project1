@@ -16,6 +16,11 @@ breweries_csv <- here("project_files", "Breweries.csv")
 beers <- data.frame(read.csv(beers_csv))
 breweries <- data.frame(read.csv(breweries_csv))
 
+
+str(Beers)
+str(Breweries)
+
+
 # Question 1 - How many breweries are present in each state?
 per_state <- breweries %>% group_by(State) %>% tally(name="breweries_per_state") %>% arrange(desc(breweries_per_state))
 per_state %>% ggplot(aes(x=reorder(State, breweries_per_state), y=breweries_per_state)) + geom_bar(stat="identity") + ggtitle("Total Breweries per State")  + coord_flip() + ylab("State") + xlab("Total Breweries")
