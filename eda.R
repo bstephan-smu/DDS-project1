@@ -75,3 +75,13 @@ names(Median_IBU_and_ABV)[3]<-"Median"
 ggplot(Median_IBU_and_ABV, aes(x =State, y= Median, fill = variable), xlab="State") +
   geom_bar(stat="identity", width=.5, position = "dodge") +facet_grid( variable~ . ,scales = "free")+
   labs(title = "Comparing Median IBU &  Median ABV by State")
+
+#Part5: The State with max ABV and max IBU
+
+#The item with max ABV
+beer_MaxAbv <- main_clean[which.max(main_clean$abv),]
+print(paste0("The state has maximum alcoholic beer is:", beer_MaxAbv$state, " with ABV of ", beer_MaxAbv$abv))
+
+#The item with max IBU
+beer_MaxIbu <- main_clean[which.max(main_clean$ibu),]
+print(paste0("The state has maximum bitterness beer is:", beer_MaxIbu$state, " with IBU of ", beer_MaxIbu$ibu))
