@@ -85,3 +85,12 @@ print(paste0("The state has maximum alcoholic beer is:", beer_MaxAbv$state, " wi
 #The item with max IBU
 beer_MaxIbu <- main_clean[which.max(main_clean$ibu),]
 print(paste0("The state has maximum bitterness beer is:", beer_MaxIbu$state, " with IBU of ", beer_MaxIbu$ibu))
+
+#Part6: The summary statistics and distribution of the ABV
+summary(main_clean$abv)
+hist(main_clean$abv)
+
+#Part7: Relationship between IBU and ABV?
+#Scatterplot
+main_clean %>% ggplot(mapping = aes(ibu, abv)) + geom_point(colour = "purple", na.rm=TRUE)+geom_smooth(method=lm, se=FALSE, na.rm=TRUE) 
+
