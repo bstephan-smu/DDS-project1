@@ -37,10 +37,60 @@ print(rbind(head(main, 6), tail(main, 6)))
 # find the NA count per column to decide next steps...you will see some missing abv and A LOT of missing ibu
 print(colSums(is.na(main)))
 
+# Preserve a version of merged dataset by removing all NAs
+main_clean<-na.omit(main)
+
 # based on evidence, will use median abv and ibu per beer style to fill na
 main <- main %>% group_by(beer_style) %>% mutate(ibu_corr = ifelse(is.na(ibu), median(ibu, na.rm = TRUE), ibu), abv_corr = ifelse(is.na(abv), median(abv, na.rm = TRUE), abv))
 
 # let's see how we did...you will see all abv "corrected" and ibu had over 950 values "corrected"
 print(colSums(is.na(main)))
 
+# Export the no-NAs file to a new csv file
+write.csv(main_clean,"./Brewery_and_Beer_Clean.csv", row.names = FALSE)
+
+# Part 4: Compute Median ABV and IBU and do bar plot
+library(doBy)
+
+#Median ABV -> Alcohol content by state
+ABV_by_State <- summaryBy(abv ~ state, data = main_clean, FUN = list(median))
+ABV_by_State<-as.data.frame(ABV_by_State)
+names(ABV_by_State) = c("State", "ABV")
+print(ABV_by_State)
+
+#Median IBU->international bitterness by state
+IBU_by_State <- summaryBy(ibu ~ state, data = main_clean, FUN = list(median))
+IBU_by_State<-as.data.frame(IBU_by_State)
+names(IBU_by_State) = c("State", "IBU")
+print(IBU_by_State)
+
+#Merge IBU and ABV by "state"
+Median_IBU_and_ABV<-merge(IBU_by_State,ABV_by_State, by = "State")
+
+#Bar_Chart_Plotter
+
+library(reshape)
+Median_IBU_and_ABV <- melt(Median_IBU_and_ABV)
+names(Median_IBU_and_ABV)[3]<-"Median"
+ggplot(Median_IBU_and_ABV, aes(x =State, y= Median, fill = variable), xlab="State") +
+  geom_bar(stat="identity", width=.5, position = "dodge") +facet_grid( variable~ . ,scales = "free")+
+  labs(title = "Comparing Median IBU &  Median ABV by State")
+
+#Part5: The State with max ABV and max IBU
+
+#The item with max ABV
+beer_MaxAbv <- main_clean[which.max(main_clean$abv),]
+print(paste0("The state has maximum alcoholic beer is:", beer_MaxAbv$state, " with ABV of ", beer_MaxAbv$abv))
+
+#The item with max IBU
+beer_MaxIbu <- main_clean[which.max(main_clean$ibu),]
+print(paste0("The state has maximum bitterness beer is:", beer_MaxIbu$state, " with IBU of ", beer_MaxIbu$ibu))
+
+#Part6: The summary statistics and distribution of the ABV
+summary(main_clean$abv)
+hist(main_clean$abv)
+
+#Part7: Relationship between IBU and ABV?
+#Scatterplot
+main_clean %>% ggplot(mapping = aes(ibu, abv)) + geom_point(colour = "purple", na.rm=TRUE)+geom_smooth(method=lm, se=FALSE, na.rm=TRUE) 
 
