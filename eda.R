@@ -7,6 +7,11 @@ library(here)
 library(ggplot2)
 library(tidyr)
 library(ggthemes)
+library(class)
+library(GGally)
+library(caret)
+library(e1071)
+
 
 
 # set relative brewery file path as variable
@@ -93,4 +98,152 @@ hist(main_clean$abv)
 #Part7: Relationship between IBU and ABV?
 #Scatterplot
 main_clean %>% ggplot(mapping = aes(ibu, abv)) + geom_point(colour = "purple", na.rm=TRUE)+geom_smooth(method=lm, se=FALSE, na.rm=TRUE) 
+
+#Part8: KNN used for analysis IBU and ABV relationship of IPA and Ale(no IPA)
+
+#Form Dataset with beer style IPA 
+main_IPA <- main_clean[grep("IPA",main_clean$beer_style),]
+#Exclude the "Ale" part within IPA subset
+main_IPA <- main_IPA[!grepl("Ale", main_IPA$beer_style),]
+
+print(head(main_IPA))
+
+#Form Dataset with beer style Ale 
+main_Ale <- main_clean[grep("Ale",main_clean$beer_style),]
+#Exclude the "IPA" part within Ale subset
+main_Ale <- main_Ale[!grepl("IPA", main_Ale$beer_style),]
+
+print(head(main_Ale))
+
+#Scatterplot of IPA and Ale datasets
+main_IPA %>% ggplot(mapping = aes(ibu, abv)) + geom_point(colour = "red", na.rm=TRUE)+geom_smooth(method=lm, se=FALSE, na.rm=TRUE) 
+main_Ale %>% ggplot(mapping = aes(ibu, abv)) + geom_point(colour = "green", na.rm=TRUE)+geom_smooth(method=lm, se=FALSE, na.rm=TRUE) 
+
+#Select cols in IPA and Ale datasets and set group name
+#Group numbers: Ale--1, IPA--2
+test_Ale <- main_Ale %>% select(ibu,abv)
+test_Ale$flag = 1
+test_IPA <- main_IPA %>% select(ibu,abv)
+test_IPA$flag = 2
+test_4KNN <- rbind(test_Ale, test_IPA)  #Combine two subsets into one for later classification
+
+#Plot IPA and Ale datasets together in a single scatterplot
+test_4KNN %>% ggplot(mapping = aes(ibu, abv)) + geom_point(color= factor(test_4KNN$flag), na.rm=TRUE)+geom_smooth(method=lm, se=FALSE, na.rm=TRUE) 
+
+#Divide dataset into train and test 
+set.seed(123)
+trainIndex = sample(seq(1:937), 650)
+trainBeers = test_4KNN[trainIndex,]
+testBeers = test_4KNN[-trainIndex,] 
+
+#Train Data Visualization
+trainBeers %>% ggplot(aes(x = abv,fill = flag)) + geom_histogram() + facet_grid(rows = vars(flag))
+trainBeers %>% ggplot(aes(x = ibu,fill = flag)) + geom_histogram() + facet_grid(rows = vars(flag))
+
+trainBeers$flag = as.factor(trainBeers$flag)
+trainBeers %>% select(abv, ibu, flag) %>% ggpairs(aes(color = flag))
+
+##Classification Method 1: KNN
+#Train the model (k=5)
+classifications = knn(trainBeers[c(1,2)],testBeers[c(1,2)],trainBeers$flag, prob = TRUE, k = 5)
+
+#The resulting confusion matrix
+table(testBeers[,'flag'],classifications)
+CM_k5 = confusionMatrix(table(testBeers[,'flag'],classifications))
+
+#Alternative K to train the model (k=10)
+classifications_k10 = knn(trainBeers[c(1,2)],testBeers[c(1,2)],trainBeers$flag, prob = TRUE, k = 10)
+
+#The resulting confusion matrix
+table(testBeers[,'flag'],classifications_k10)
+CM_k10 = confusionMatrix(table(testBeers[,'flag'],classifications_k10))
+
+
+##################################################################
+# Loop for many k and the average of many training / test partition
+
+set.seed(1)
+iterations = 10
+numks = 90
+splitPerc = .7
+
+masterAcc = matrix(nrow = iterations, ncol = numks)
+
+for(j in 1:iterations)
+{
+  trainIndices = sample(1:dim(test_4KNN)[1],round(splitPerc * dim(test_4KNN)[1]))
+  train = test_4KNN[trainIndices,]
+  test = test_4KNN[-trainIndices,]
+  for(i in 1:numks)
+  {
+    classifications = knn(train[,c(1,2)],test[,c(1,2)],train$flag, prob = TRUE, k = i)
+    table(classifications,test$flag)
+    CM = confusionMatrix(table(classifications,test$flag))
+    masterAcc[j,i] = CM$overall[1]
+  }
+  
+}
+
+MeanAcc = colMeans(masterAcc)
+
+plot(seq(1,numks,1),MeanAcc, type = "l")
+
+which.max(MeanAcc)
+max(MeanAcc)
+###############################################################
+
+## Classification Method 2: Native Bayes
+classifications_nb = naiveBayes(trainBeers[,c(1,2)],as.factor(trainBeers$flag))
+table(predict(classifications_nb,testBeers[,c(1,2)]),as.factor(testBeers$flag))
+CM_nb = confusionMatrix(table(predict(classifications_nb,testBeers[,c(1,2)]),as.factor(testBeers$flag)))
+
+
+####################################################
+# Loop for average of many training / test partition
+
+iterations = 10
+masterAcc_nb = matrix(nrow = iterations)
+
+for(j in 1:iterations)
+{
+  
+  trainIndices = sample(seq(1:length(test_4KNN$flag)),round(.7*length(test_4KNN$flag)))
+  trainBeers = test_4KNN[trainIndices,]
+  testBeers = test_4KNN[-trainIndices,] 
+  
+  model_nb = naiveBayes(trainBeers[,c(1,2)],as.factor(trainBeers$flag))
+  table(predict(model_nb,testBeers[,c(1,2)]),as.factor(testBeers$flag))
+  CM = confusionMatrix(table(predict(model_nb,testBeers[,c(1,2)]),testBeers$flag))
+  masterAcc_nb[j] = CM$overall[1]
+}
+
+
+plot(seq(1,iterations,1),masterAcc_nb, type = "l")
+
+which.max(masterAcc_nb)
+max(masterAcc_nb)
+##########################################################
+
+## Classification Method 3: SVM
+classifications_svm = svm(trainBeers[,c(1,2)],as.factor(trainBeers$flag))
+table(predict(classifications_svm,testBeers[,c(1,2)]),as.factor(testBeers$flag))
+CM_svm = confusionMatrix(table(predict(classifications_svm,testBeers[,c(1,2)]),testBeers$flag))
+
+## Classification Method 4: Random Forest
+library(randomForest)
+classifications_rf = randomForest(trainBeers[,c(1,2)],as.factor(trainBeers$flag),ntree=500)
+table(predict(classifications_rf,testBeers[,c(1,2)]),as.factor(testBeers$flag))
+CM_rf = confusionMatrix(table(predict(classifications_rf,testBeers[,c(1,2)]),testBeers$flag))
+
+## Classification Method 5: Xgboost
+TrainControl <- trainControl( method = "repeatedcv", number = 10, repeats = 4)
+classifications_xg = train(trainBeers[,c(1,2)],as.factor(trainBeers$flag), method = "xgbTree", trControl = TrainControl,verbose = FALSE)
+table(predict(classifications_xg,testBeers[,c(1,2)]),as.factor(testBeers$flag))
+CM_xg = confusionMatrix(table(predict(classifications_xg,testBeers[,c(1,2)]),testBeers$flag))
+
+## Cluster Experiment: K-means
+library(cluster)
+cluster_kmeans = kmeans(test_4KNN, 2) # 2 cluster solution
+table(cluster_kmeans$cluster,test_4KNN$flag)
+
 
