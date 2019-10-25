@@ -124,11 +124,12 @@ In order to get an idea of the maximum values in the dataset, we perform a simpl
 ```{r}
 #Part5: The State with max ABV and max IBU
 #The item with max ABV
-beer_MaxAbv <- main_clean[which.max(main_clean$abv),]
+
+beer_MaxAbv <- main[which.max(main$abv),]
 print(paste0("The state has maximum alcoholic beer is:", beer_MaxAbv$state, " with ABV of ", beer_MaxAbv$abv))
 
 #The item with max IBU
-beer_MaxIbu <- main_clean[which.max(main_clean$ibu),]
+beer_MaxIbu <- main[which.max(main$ibu),]
 print(paste0("The state has maximum bitterness beer is:", beer_MaxIbu$state, " with IBU of ", beer_MaxIbu$ibu))
 ```
 \newline
