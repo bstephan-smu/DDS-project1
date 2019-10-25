@@ -1,0 +1,364 @@
+---
+title: "Doing Data Science - Midterm Project"
+author: "Michael (Branum) Stephan and Yang Zhang"
+date: "10/19/2019"
+output: html_document
+---
+```{r message=FALSE}
+library(dplyr)
+library(here)
+library(ggplot2)
+library(tidyr)
+library(ggthemes)
+library(doBy)
+library(reshape)
+library(plotly)
+library(GGally)
+library(caret)
+library(e1071)
+library(class)
+library(usmap)
+```
+\newline
+First, we create some custom theme to ensure homogoneity throughout the presentation deck.
+```{r}
+# set global theme
+# custom theme
+bg_color = "#0B0C10"
+bar_color = "#66FCF1"
+text_main = "#FFFFF"
+text_ticks = "#CFC6C7"
+axis_lines = #453a3b"
+cust_theme <- theme(plot.title = element_text(color = 'white', vjust=0.5, hjust=0.5),
+                    plot.background = element_rect(fill = bg_color),
+                    panel.background = element_rect(fill = bg_color),
+                    axis.text.x=element_text(angle=90,hjust=1),
+                    axis.text = element_text(colour = text_ticks),
+                    panel.grid.major.x = element_blank(),
+                    panel.grid.minor.x = element_blank(),
+                    panel.grid.major.y =  element_line(colour = "#453a3b", linetype = 1, size = 0.25),
+                    panel.grid.minor.y = element_blank(),
+                    axis.title = element_text(colour = "white"))
+
+# overwrite default theme with custom
+theme_set(theme_foundation() + cust_theme)
+```
+\newline
+Then, we created a relative file path from the "here" library for better reproducibility. After setting our working directory, we imported the files into dataframes for better transformation capabilities.
+```{r}
+# set relative brewery file path as variable
+beers_csv <- here("project_files", "Beers.csv")
+breweries_csv <- here("project_files", "Breweries.csv")
+
+# initialize dataframes
+beers <- data.frame(read.csv(beers_csv))
+breweries <- data.frame(read.csv(breweries_csv))
+```
+\newline
+# Part 1: Counting breweries by state.
+How many breweries are present in each state?
+In order to investigate the number of breweries in our data set, we group everything by state and then perform a tally function in order to count total breweries. Then we plot the results as a bar chart using ggplot (and plotly).
+```{r}
+# Question 1 - How many breweries are present in each state?
+per_state <- breweries %>% group_by(State) %>% tally(name="breweries_per_state") %>% arrange(desc(breweries_per_state))
+fig1 <- per_state %>% ggplot(aes(x=reorder(State, breweries_per_state), y=breweries_per_state)) + geom_bar(stat="identity", fill=bar_color) + ggtitle("Total Breweries per State") + ylab("Total Breweries") + xlab("State")
+
+ggplotly(fig1)
+```
+\newline
+# Part 2: Joining beer and brewery datasets.
+Can we combine the data? What's it look like? In order to join the two dataframes, we called the "merge" function and joined the two dataframes on common keys - brewery_id and brew_id. We made sure to rename the columns for easier reuse and then displayed the results using an rbind function to combine the heads and tails of the resultant dataframe.
+```{r}
+# Question 2: Merge Beer data with Breweries data. Print head(6) and tail(6)
+# Note: left join breweries on beers because 1-many relationship
+main <- merge(beers, breweries, by.x="Brewery_id", by.y="Brew_ID")
+
+# clean column names for good housekeeping
+main_cols <- c("brewery_id", "beer_name", "beer_id", "abv", "ibu", "beer_style", "serving_ounces", "brewery_name", "city", "state")
+names(main) <- main_cols
+
+# print head and tail of resultant data set
+print(rbind(head(main, 6), tail(main, 6)))
+```
+\newline
+# Part 3: Addressing "NA" values.
+How can we address the "NA" values? In order to perform more detailed analysis, it's important to address the null values. In order to get a better idea of missing data, we filtered the dataframe to only null values using "is.na" and then took the count of each column using "colSums". You can see in the print statement below that the most influencial null value is ibu. Almost half of the ibu values are missing! In order to "massage" this into workable data, we made an assumption that the median values for each style should be fairly close to the actual values. This is due to the fact that each beer style has ranges on ibu, therefore, we know a good range of potential values which the actual could lie in. 
+```{r}
+# Part 3: Address NA values in each column
+# find the NA count per column to decide next steps...you will see some missing abv and A LOT of missing ibu
+print(colSums(is.na(main)))
+
+# Preserve a version of merged dataset by removing all NAs
+main_clean<-na.omit(main)
+
+# based on evidence, will use median abv and ibu per beer style to fill na
+main <- main %>% group_by(beer_style) %>% mutate(ibu_corr = ifelse(is.na(ibu), median(ibu, na.rm = TRUE), ibu), abv_corr = ifelse(is.na(abv), median(abv, na.rm = TRUE), abv))
+
+# let's see how we did...you will see all abv "corrected" and ibu had over 950 values "corrected"
+print(colSums(is.na(main)))
+
+# Export the no-NAs file to a new csv file
+write.csv(main_clean,"./Brewery_and_Beer_Clean.csv", row.names = FALSE)
+```
+\newline
+# Part 4: Median ABV and IBU for entire dataset.
+After checking for null values, we then compute the median ABV and IBU for the dataset to give a representation of the central values to expect among all beers. We accomplish this using a grouping statement and then dplyr's summarise statement in order to perform a median aggregation on each column. 
+```{r message=FALSE}
+# Part 4: Compute Median ABV and IBU and do bar plot
+medians <- main_clean %>% group_by(state) %>% summarise(median_abv = median(abv), median_ibu = median(ibu))
+
+#Bar_Chart_Plotter
+
+# ibu bar plot
+fig2 <- medians %>% ggplot() + geom_bar(aes(x=reorder(state, -median_ibu), y=median_ibu), stat="identity", fill=bar_color) + ggtitle("Median IBU per State") +ylab("Median IBU") + xlab("State") 
+
+# abv bar plot
+fig3 <- medians %>% ggplot() + geom_bar(aes(x=reorder(state, -median_abv), y=median_abv*100), stat="identity", fill=bar_color) + ggtitle("Median ABV per State") +ylab("Median ABV") + xlab("State") + expand_limits(y=c(0, max(medians$median_abv+0.5)))
+
+ggplotly(fig2)
+ggplotly(fig3)
+```
+\newline
+# Part 5: State with Max ABV and Max IBU.
+In order to get an idea of the maximum values in the dataset, we perform a simple lookup of maximum abv and ibu for the dataset. We do this by utilizing "which" to look up the index of the max value specified. From there, we filter our dataset to only include that particular index.
+```{r}
+#Part5: The State with max ABV and max IBU
+#The item with max ABV
+beer_MaxAbv <- main[which.max(main$abv),]
+print(paste0("The state has maximum alcoholic beer is:", beer_MaxAbv$state, " with ABV of ", beer_MaxAbv$abv))
+
+#The item with max IBU
+beer_MaxIbu <- main[which.max(main$ibu),]
+print(paste0("The state has maximum bitterness beer is:", beer_MaxIbu$state, " with IBU of ", beer_MaxIbu$ibu))
+```
+\newline
+# Part 6: Summary statistics and distribution of ABV.
+To get an idea of the overall statistical distribution of the abv data, we then used "summary" to return a statistical summary of the abv data and then create a histogram to show normality and spread.
+```{r}
+#Part6: The summary statistics and distribution of the ABV
+summary(main_clean$abv)
+fig4 <- main_clean %>% ggplot() + geom_histogram(aes(x=abv*100), fill=bar_color) + ggtitle("Distribution of ABV") + xlab("Percent ABV")
+
+ggplotly(fig4)
+```
+\newline
+# Part 7: Analysis of the relationship between ABV and IBU.
+Two of the most pricniple characteristics of beer are the ibu and abv measurements. What's the relationship between these two? In order to test for this, we created a scatterplot of abv vs. ibu. You can see that the positive correlation between the two suggests that higher alcohol content is common among higher abv beers.
+```{r}
+#Part7: Relationship between IBU and ABV?
+#Scatterplot
+fig5 <- main_clean %>% ggplot(aes(ibu, abv*100)) + geom_point(colour=bar_color, na.rm=TRUE)+geom_smooth(method=lm, se=FALSE,color="white", linetype="dashed", na.rm=TRUE) + ggtitle("ABV vs. IBU") + ylab("abv")
+
+ggplotly(fig5)
+```
+\newline
+# Part 8: KNN model creation based on IBU and ABV.
+Next, we will create an estimation model in order to classify beers (IPA vs. Non-IPA) based on their alchol and IBU levels. The first steps are preparing the data by splitting and classifying accordingly.
+```{r}
+#Part8: KNN used for analysis IBU and ABV relationship of IPA and Ale(no IPA)
+
+#Form Dataset with beer style IPA 
+main_IPA <- main_clean[grep("IPA",main_clean$beer_style),]
+#Exclude the "Ale" part within IPA subset
+main_IPA <- main_IPA[!grepl("Ale", main_IPA$beer_style),]
+
+print(head(main_IPA))
+
+#Form Dataset with beer style Ale 
+main_Ale <- main_clean[grep("Ale",main_clean$beer_style),]
+#Exclude the "IPA" part within Ale subset
+main_Ale <- main_Ale[!grepl("IPA", main_Ale$beer_style),]
+
+print(head(main_Ale))
+```
+\newline
+Next, we will plot each seperate classification by their associated parameters in order to identify correlation between ABV and IBU for each group.
+```{r}
+#Scatterplot of IPA and Ale datasets
+fig6 <- main_IPA %>% ggplot(mapping = aes(ibu, abv)) + geom_point(colour = bar_color, na.rm=TRUE)+geom_smooth(method=lm, se=FALSE, na.rm=TRUE, colour="white") + ggtitle("IPA: ABV vs. IBU")
+fig7 <- main_Ale %>% ggplot(mapping = aes(ibu, abv)) + geom_point(color = bar_color, na.rm=TRUE)+geom_smooth(method=lm, se=FALSE, na.rm=TRUE, colour="white") + ggtitle("Ale: ABV vs. IBU")
+
+ggplotly(fig6)
+ggplotly(fig7)
+```
+\newline
+Now, we will rejoin the two groups together to continue to the modeling phase
+```{r}
+#Select cols in IPA and Ale datasets and set group name
+#Group numbers: Ale--1, IPA--2
+test_Ale <- main_Ale %>% select(ibu,abv)
+test_Ale$flag = "ALE"
+test_IPA <- main_IPA %>% select(ibu,abv)
+test_IPA$flag = "IPA"
+test_4KNN <- rbind(test_Ale, test_IPA)  #Combine two subsets into one for later classification
+test_4KNN$flag <- as.factor(test_4KNN$flag)
+```
+\newline
+You can see below how there are noticeable clusters being formed between IPA and non-IPA beers with the limit being somewhere around 50 IBU.
+```{r}
+#Plot IPA and Ale datasets together in a single scatterplot
+test_4KNN %>% ggplot(mapping = aes(ibu, abv,color=test_4KNN$flag)) + geom_point(na.rm=TRUE) + geom_smooth(method=lm, se=FALSE, na.rm=TRUE, linetype="dashed") + scale_colour_manual(name="Beer Style", values=c("ALE" = "#FF652F","IPA" ="#14A76C")) + ggtitle("ABV vs. IBU by Beer Style: KNN Test")
+```
+\newline
+Next, we will split our dataset into train-split subsets. We have specified that 70% will be used as training set, and 30% will be used for testing.
+```{r message=FALSE}
+#Divide dataset into train and test 
+set.seed(123)
+trainIndex = sample(seq(1:937), 650)
+trainBeers = test_4KNN[trainIndex,]
+testBeers = test_4KNN[-trainIndex,] 
+
+#Train Data Visualization
+trainBeers %>% ggplot(aes(x = abv,fill = flag)) + geom_histogram() + facet_grid(rows = vars(flag))
+trainBeers %>% ggplot(aes(x = ibu,fill = flag)) + geom_histogram() + facet_grid(rows = vars(flag))
+```
+\newline
+Let's examine our training dataset for normality and skewness to see how the data is balanced.
+```{r message=FALSE}
+trainBeers$flag = as.factor(trainBeers$flag)
+trainBeers %>% select(abv, ibu, flag) %>% ggpairs(aes(color = flag)) + ggtitle("Distribution of Ale and IPA IBU data")
+```
+\newline
+Below is the initial KNN training model. You will see that the model does a pretty good job at classifying between the two (definitely better than a straight guess). Additionally, it appears to perform specificity and sensitivity are very similar suggesting that the model is likely very balanced in it's estimations.
+```{r}
+##Classification Method 1: KNN
+#Train the model (k=5)
+classifications = knn(trainBeers[c(1,2)],testBeers[c(1,2)],trainBeers$flag, prob = TRUE, k = 5)
+
+#The resulting confusion matrix
+table(testBeers[,'flag'],classifications)
+CM_k5 = confusionMatrix(table(testBeers[,'flag'],classifications))
+CM_k5
+```
+\newline
+The above is based on k-value is five...what about k is equal to ten? You can see here that the accuracy is the same, with the increased specificity offsetting a decrease in sensitivity.
+```{r}
+#Alternative K to train the model (k=10)
+classifications_k10 = knn(trainBeers[c(1,2)],testBeers[c(1,2)],trainBeers$flag, prob = TRUE, k = 10)
+
+#The resulting confusion matrix
+table(testBeers[,'flag'],classifications_k10)
+CM_k10 = confusionMatrix(table(testBeers[,'flag'],classifications_k10))
+CM_k10
+```
+\newline
+In order to properly "tune" our hyperparameter, k, we will perform an interative loop with 100 random samples and 90 different k-values. From there, we calculate the average model accuracy in order to choose the best k-value.
+```{r}
+##################################################################
+# Loop for many k and the average of many training / test partition
+
+set.seed(1)
+iterations = 100
+numks = 90
+splitPerc = .7
+
+masterAcc = matrix(nrow = iterations, ncol = numks)
+
+for(j in 1:iterations)
+{
+  trainIndices = sample(1:dim(test_4KNN)[1],round(splitPerc * dim(test_4KNN)[1]))
+  train = test_4KNN[trainIndices,]
+  test = test_4KNN[-trainIndices,]
+  for(i in 1:numks)
+  {
+    classifications = knn(train[,c(1,2)],test[,c(1,2)],train$flag, prob = TRUE, k = i)
+    table(classifications,test$flag)
+    CM = confusionMatrix(table(classifications,test$flag))
+    masterAcc[j,i] = CM$overall[1]
+  }
+  
+}
+```
+\newline
+Based on the loop above, the following plot can be generated from the different k-values based on the 100 different random samples.
+```{r}
+MeanAcc = colMeans(masterAcc)
+
+plot(seq(1,numks,1),MeanAcc, type = "l")
+```
+\newline
+Based on the data plotted above, the optimal K-value is listed below, along with the maximum accuracy of the model.
+```{r}
+which.max(MeanAcc)
+max(MeanAcc)
+```
+\newline
+# Part 9: IPA per 100k population (additional exploration).
+After creating our IPA estimation model, we will now do some additional exploratory analysis in order to find the best market to introduce a new Budweiser IPA beer. Initially, we will use the grep function to tally only IPA values and then filter our dataset accordingly.
+```{r}
+# Part 9: Additional Data Exploration
+# Plan - to count % IPA per total craft beers in each state.
+
+# finding the beers containing "IPA" in their style and tallying
+cat_freq <- main %>% mutate(category=
+  case_when(
+    grepl("IPA", beer_style) ~ "IPA",
+    TRUE ~ "OTHER"
+  )
+) %>% group_by(state, category) %>% summarise(n=n()) %>% mutate(freq = n/sum(n)) %>% filter(category=="IPA")
+cat_freq$state <- trimws(cat_freq$state)
+
+# adding full state names from merging with us_map() library function
+cat_freq <- merge(distinct(us_map(), full, abbr), cat_freq, by.x="abbr", by.y="state", all.x=TRUE) %>% mutate(n=replace_na(n, 0), freq=replace_na(freq, 0))
+```
+\newline
+Next, let's calculate our relative frequency of IPA to total craft beers per state.
+```{r}
+# create percentage from frequency
+cat_freq$freq = round(cat_freq$freq, digits=4)*100
+```
+\newline
+After realizing the impact of population on market potential, I downloaded the 2019 consensus data in order to perform a "correction" for state population. My goal was to the best balance of IPA count per 100k consumers in order to find the best markets to perform trials before scaling to mass production.
+```{r}
+# creatig dataframe from state consensus
+state_pop <- data.frame(read.csv(here("project_files", "2019 consensus data.csv")))
+
+# merging dataframe with %IPA per state dataframe
+normalized_IPA <- merge(state_pop, cat_freq, by.x="State", by.y="full")
+
+# normalizing IPA count per 100k state population
+normalized_IPA <- normalized_IPA %>% mutate(IPA_per_100k = n/(Pop / 100000)) %>% arrange(desc(IPA_per_100k))
+
+# creating a hover tag for the map
+normalized_IPA$hover <- with(normalized_IPA, paste(State, '<br>', "IPA Beers", n, "<br>","IPA % of total craft beers", freq,"%", "<br>", "Population Rank", rank, "<br>", "IPA per 100k", IPA_per_100k))
+```
+\newline
+Based on this evidence, you'll see the following states are the best candidates for a trial run of Budeweiser IPA, according to population and IPA interest.
+```{r}
+# displaying a table of top 5 markets for reference
+fig8 <- normalized_IPA %>% select(State, Pop, IPA_per_100k) %>% top_n(8)
+fig8 %>% plot_ly(type='table',
+                      header = list(
+                        values = c("State", sprintf("State Population (%s Sample Size)",sum(fig8$Pop)), "IPA per 100k People")),
+                      cells=list(
+                        values=t(unname(as.matrix(fig8))),
+                        font = list(color = c('#506784'), size = 12)
+                      ))
+fig8
+```
+\newline
+Now that we have normalized our dataset, let's identify the states with the best potential for the IPA release. You can see from the results below, that if we were to pick a region for the release instead of isolating to only the top five consumer states, it appears that the Pacific Northwest to Colorado may be the best market to enter with hard initial avoidance in the Southeast Region.
+```{r}
+# displaying all US IPA markets on map
+fig9 <- plot_geo(normalized_IPA, locationmode = 'USA-states') %>%
+  add_trace(
+    z = ~IPA_per_100k, text=~hover, locations = ~abbr,
+    color = ~IPA_per_100k,
+    marker = list(line = list(color = toRGB(bg_color), width = 2.25)),colorscale='MAGMA'
+  ) %>%
+  colorbar(title = "IPA") %>%
+  layout(
+    title = 'IPA count per 100k',
+    font = list(color = 'white'),
+    geo=list(
+      scope = 'usa',
+      projection = list(type = 'albers usa'),
+      showlakes = FALSE,
+      bgcolor=toRGB(bg_color, alpha = 1)),
+    paper_bgcolor=toRGB(bg_color, alpha = 1),
+    margin=list(l=20, r=20, t=60, b=20)
+  )
+
+fig9
+
+```
