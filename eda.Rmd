@@ -360,7 +360,7 @@ fig8
 \newline
 Now that we have normalized our dataset, let's identify the region with the best potential for the IPA release. You can see from the results below, that if we were to combine the state IPA data to a particular region, it appears that the Pacific Northwest may be the best market to enter with hard initial avoidance in the Southeast Region. 
 \newline
-Because of the geographic launch to the West Coast, my recommendation is launch a **Budweiser West Coast IPA along the Pacific Northwest for trials before pushing the product eastward**. Before eastward expansion, it may prove beneficial to test the product in Vermont and trickle downward, hitting the southeast region once the product has been adequately developed for mass production. 
+Because of the geographic launch to the West Coast, **my recommendation is to launch a Budweiser West Coast IPA along the Pacific Northwest for trials before pushing the product eastward**. Before eastward expansion, it may prove beneficial to test the product in Vermont and trickle downward, hitting the southeast region once the product has been adequately developed for mass production. 
 ```{r}
 # displaying all US IPA markets on map
 fig9 <- plot_geo(normalized_IPA, locationmode = 'USA-states') %>%
