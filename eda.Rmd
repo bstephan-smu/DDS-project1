@@ -4,6 +4,12 @@ author: "Michael (Branum) Stephan and Yang Zhang"
 date: "10/19/2019"
 output: html_document
 ---
+\newline
+# A Market Investigation for Budweiser IPA
+\newline
+Given the recent rise in popularity of craft beer, a new generation of beer pioneers has been created that no longer is satisfied with the standard beer styles offered by big commerical breweries, such as ABInbev. Among the most popular of the craft beer styles is the Imperial Pale Ale, often referred to a the "IPA". It has become a major source of revenue for many craft breweries as the trend has sweeped the globe. In order to compete, AbInbev has been discussing the potential of releasing a "Budweiser IPA", which will be a market response to promote Budweiser to a wider audience. The following exploratory analysis aims to provide a thorough understanding of what defines an IPA, along with the best suggestion for a regional trial.
+\newline
+*Initializing required libraries*
 ```{r message=FALSE}
 library(dplyr)
 library(here)
@@ -20,7 +26,7 @@ library(class)
 library(usmap)
 ```
 \newline
-First, we create some custom theme to ensure homogoneity throughout the presentation deck.
+*First, we create some custom theme to ensure homogeneity throughout the presentation deck.*
 ```{r}
 # set global theme
 # custom theme
@@ -44,7 +50,7 @@ cust_theme <- theme(plot.title = element_text(color = 'white', vjust=0.5, hjust=
 theme_set(theme_foundation() + cust_theme)
 ```
 \newline
-Then, we created a relative file path from the "here" library for better reproducibility. After setting our working directory, we imported the files into dataframes for better transformation capabilities.
+*Then, we created a relative file path from the "here" library for better reproducibility. After setting our working directory, we imported the files into dataframes for better transformation capabilities.*
 ```{r}
 # set relative brewery file path as variable
 beers_csv <- here("project_files", "Beers.csv")
@@ -56,8 +62,10 @@ breweries <- data.frame(read.csv(breweries_csv))
 ```
 \newline
 # Part 1: Counting breweries by state.
-How many breweries are present in each state?
-In order to investigate the number of breweries in our data set, we group everything by state and then perform a tally function in order to count total breweries. Then we plot the results as a bar chart using ggplot (and plotly).
+*In order to investigate the number of breweries in our data set, we group everything by state and then perform a tally function in order to count total breweries. Then we plot the results as a bar chart using ggplot (and plotly).*
+\newline
+According the dataset provided, it appears that the states with the highest craft brewery count (in order) are Colorado, California,  Michigan, Oregan, and Texas. From here, we can make an initial inference that these markets are most appreciative towards craft beer and would provide a great test market for the new IPA release.
+\newline
 ```{r}
 # Question 1 - How many breweries are present in each state?
 per_state <- breweries %>% group_by(State) %>% tally(name="breweries_per_state") %>% arrange(desc(breweries_per_state))
@@ -67,7 +75,8 @@ ggplotly(fig1)
 ```
 \newline
 # Part 2: Joining beer and brewery datasets.
-Can we combine the data? What's it look like? In order to join the two dataframes, we called the "merge" function and joined the two dataframes on common keys - brewery_id and brew_id. We made sure to rename the columns for easier reuse and then displayed the results using an rbind function to combine the heads and tails of the resultant dataframe.
+*Can we combine the data? What's it look like? In order to join the two dataframes, we called the "merge" function and joined the two dataframes on common keys - brewery_id and brew_id. We made sure to rename the columns for easier reuse and then displayed the results using an rbind function to combine the heads and tails of the resultant dataframe.*
+In order to leverage our querying capabilities on the dataset, the two provided files have been joined together.
 ```{r}
 # Question 2: Merge Beer data with Breweries data. Print head(6) and tail(6)
 # Note: left join breweries on beers because 1-many relationship
@@ -82,7 +91,12 @@ print(rbind(head(main, 6), tail(main, 6)))
 ```
 \newline
 # Part 3: Addressing "NA" values.
-How can we address the "NA" values? In order to perform more detailed analysis, it's important to address the null values. In order to get a better idea of missing data, we filtered the dataframe to only null values using "is.na" and then took the count of each column using "colSums". You can see in the print statement below that the most influencial null value is ibu. Almost half of the ibu values are missing! In order to "massage" this into workable data, we made an assumption that the median values for each style should be fairly close to the actual values. This is due to the fact that each beer style has ranges on ibu, therefore, we know a good range of potential values which the actual could lie in. 
+*How can we address the "NA" values? In order to get a better idea of missing data, we filtered the dataframe to only null values using "is.na" and then took the count of each column using "colSums". You can see in the print statement below that the most influencial null value is ibu. Almost half of the ibu values are missing! In order to "massage" this into workable data, we made an assumption that the median values for each style should be fairly close to the actual values. This is due to the fact that each beer style has ranges on ibu, therefore, we know a good range of potential values which the actual could lie in. *
+\newline
+In order to use the dataset for future statistical modeling and machine learning projects, it's important to treat any missing values in the dataset. To do this, we will follow two common approaches:
+
+1) remove records with null values
+2) replace null values with medians from each beer style
 ```{r}
 # Part 3: Address NA values in each column
 # find the NA count per column to decide next steps...you will see some missing abv and A LOT of missing ibu
@@ -102,7 +116,11 @@ write.csv(main_clean,"./Brewery_and_Beer_Clean.csv", row.names = FALSE)
 ```
 \newline
 # Part 4: Median ABV and IBU for entire dataset.
-After checking for null values, we then compute the median ABV and IBU for the dataset to give a representation of the central values to expect among all beers. We accomplish this using a grouping statement and then dplyr's summarise statement in order to perform a median aggregation on each column. 
+*After checking for null values, we then compute the median ABV and IBU for the dataset to give a representation of the central values to expect among all beers. We accomplish this using a grouping statement and then dplyr's summarise statement in order to perform a median aggregation on each column. *
+\newline
+What ABV and IBU levels do craft beer consumers gravitate towards? Where does traditional Budweiser fall on this scale? Based on the evidence in the dataset provided, the median ABV of the craft beer for each state provided is between 4 - 6.7%. This is a fairly tight spread, suggesting that an ABV level between the median ranges would likely be suitable to consumers in all states. 
+\newline
+However, when looking at the median IBU values, there is much more spread between states. What this would suggest is that different states have different views on how bitter their beer should be (IBU level). Currenlty, traditional Budweiser resides right in the middle of the ABV range at 5% ABV, but much lower than the median IBU for all states in the dataset (12 IBU)! Therefore, the evidence suggests that craft beer consumers might prefer Budweiser if it were more bitter (greater IBU). 
 ```{r message=FALSE}
 # Part 4: Compute Median ABV and IBU and do bar plot
 medians <- main_clean %>% group_by(state) %>% summarise(median_abv = median(abv), median_ibu = median(ibu))
@@ -120,7 +138,8 @@ ggplotly(fig3)
 ```
 \newline
 # Part 5: State with Max ABV and Max IBU.
-In order to get an idea of the maximum values in the dataset, we perform a simple lookup of maximum abv and ibu for the dataset. We do this by utilizing "which" to look up the index of the max value specified. From there, we filter our dataset to only include that particular index.
+*In order to get an idea of the maximum values in the dataset, we perform a simple lookup of maximum abv and ibu for the dataset. We do this by utilizing "which" to look up the index of the max value specified. From there, we filter our dataset to only include that particular index.*
+What are the limits for ABV and IBU levels of craft beer? How high are consumers willing to go? Based on the evidence provided in the dataset, it appears that the maximum ABV among the craft beers is 12.8% (~2.5x Budweiser) with a maximum IBU of 138 (11.5x Budweiser). 
 ```{r}
 #Part5: The State with max ABV and max IBU
 #The item with max ABV
@@ -133,7 +152,9 @@ print(paste0("The state has maximum bitterness beer is:", beer_MaxIbu$state, " w
 ```
 \newline
 # Part 6: Summary statistics and distribution of ABV.
-To get an idea of the overall statistical distribution of the abv data, we then used "summary" to return a statistical summary of the abv data and then create a histogram to show normality and spread.
+*To get an idea of the overall statistical distribution of the abv data, we then used "summary" to return a statistical summary of the abv data and then create a histogram to show normality and spread.*
+\newline
+Looking further into the distribution of the ABV levels of craft beers, it appears that the average ABV of craft beer is 5.97%, with a slight right skew. According to the median, 50% of craft beers are between 0-5.6% ABV and another 50% are between 5.6 and 12.8%. 
 ```{r}
 #Part6: The summary statistics and distribution of the ABV
 summary(main_clean$abv)
@@ -153,7 +174,9 @@ ggplotly(fig5)
 ```
 \newline
 # Part 8: KNN model creation based on IBU and ABV.
-Next, we will create an estimation model in order to classify beers (IPA vs. Non-IPA) based on their alchol and IBU levels. The first steps are preparing the data by splitting and classifying accordingly.
+*The first steps are preparing the data by splitting and classifying accordingly.*
+\newline
+Next, we will create an estimation model in order to classify beers (IPA vs. Non-IPA) based on their alchol and IBU levels. The method used here will be K-nearest neighbors, which will leverage classification of known beers to compare the test value to the known. This could help us in our investigation by assisting in labeling beer styles of various other samples in addition to testing if our new Budweiser IPA will meet similar ABV and IBU to the supplied IPA's in the dataset.
 ```{r}
 #Part8: KNN used for analysis IBU and ABV relationship of IPA and Ale(no IPA)
 
@@ -172,7 +195,7 @@ main_Ale <- main_Ale[!grepl("IPA", main_Ale$beer_style),]
 print(head(main_Ale))
 ```
 \newline
-Next, we will plot each seperate classification by their associated parameters in order to identify correlation between ABV and IBU for each group.
+*Next, we will plot each seperate classification by their associated parameters in order to identify correlation between ABV and IBU for each group.*
 ```{r}
 #Scatterplot of IPA and Ale datasets
 fig6 <- main_IPA %>% ggplot(mapping = aes(ibu, abv)) + geom_point(colour = bar_color, na.rm=TRUE)+geom_smooth(method=lm, se=FALSE, na.rm=TRUE, colour="white") + ggtitle("IPA: ABV vs. IBU")
@@ -182,7 +205,7 @@ ggplotly(fig6)
 ggplotly(fig7)
 ```
 \newline
-Now, we will rejoin the two groups together to continue to the modeling phase
+*Now, we will rejoin the two groups together to continue to the modeling phase*
 ```{r}
 #Select cols in IPA and Ale datasets and set group name
 #Group numbers: Ale--1, IPA--2
@@ -194,13 +217,13 @@ test_4KNN <- rbind(test_Ale, test_IPA)  #Combine two subsets into one for later 
 test_4KNN$flag <- as.factor(test_4KNN$flag)
 ```
 \newline
-You can see below how there are noticeable clusters being formed between IPA and non-IPA beers with the limit being somewhere around 50 IBU.
+To further help with visualizing the IBU and ABV differences between IPA and non-IPA beers, we plotted the following scatter, colored by beer classification. You can see below how there are noticeable clusters being formed between IPA and non-IPA beers with the limit being somewhere around 50 IBU.
 ```{r}
 #Plot IPA and Ale datasets together in a single scatterplot
 test_4KNN %>% ggplot(mapping = aes(ibu, abv,color=test_4KNN$flag)) + geom_point(na.rm=TRUE) + geom_smooth(method=lm, se=FALSE, na.rm=TRUE, linetype="dashed") + scale_colour_manual(name="Beer Style", values=c("ALE" = "#FF652F","IPA" ="#14A76C")) + ggtitle("ABV vs. IBU by Beer Style: KNN Test")
 ```
 \newline
-Next, we will split our dataset into train-split subsets. We have specified that 70% will be used as training set, and 30% will be used for testing.
+*Next, we will split our dataset into train-split subsets. We have specified that 70% will be used as training set, and 30% will be used for testing.*
 ```{r message=FALSE}
 #Divide dataset into train and test 
 set.seed(123)
@@ -213,7 +236,7 @@ trainBeers %>% ggplot(aes(x = abv,fill = flag)) + geom_histogram() + facet_grid(
 trainBeers %>% ggplot(aes(x = ibu,fill = flag)) + geom_histogram() + facet_grid(rows = vars(flag))
 ```
 \newline
-Let's examine our training dataset for normality and skewness to see how the data is balanced.
+Let's examine our the KNN training data for correlation to ensure that we have selected proper classification parameters. You can see noticeable differences between the distributions of both groups, which is a great sign for our model.
 ```{r message=FALSE}
 trainBeers$flag = as.factor(trainBeers$flag)
 trainBeers %>% select(abv, ibu, flag) %>% ggpairs(aes(color = flag)) + ggtitle("Distribution of Ale and IPA IBU data")
@@ -231,7 +254,7 @@ CM_k5 = confusionMatrix(table(testBeers[,'flag'],classifications))
 CM_k5
 ```
 \newline
-The above is based on k-value is five...what about k is equal to ten? You can see here that the accuracy is the same, with the increased specificity offsetting a decrease in sensitivity.
+*The above is based on k-value is five...what about k is equal to ten? You can see here that the accuracy is the same, with the increased specificity offsetting a decrease in sensitivity.*
 ```{r}
 #Alternative K to train the model (k=10)
 classifications_k10 = knn(trainBeers[c(1,2)],testBeers[c(1,2)],trainBeers$flag, prob = TRUE, k = 10)
@@ -242,7 +265,7 @@ CM_k10 = confusionMatrix(table(testBeers[,'flag'],classifications_k10))
 CM_k10
 ```
 \newline
-In order to properly "tune" our hyperparameter, k, we will perform an interative loop with 100 random samples and 90 different k-values. From there, we calculate the average model accuracy in order to choose the best k-value.
+*In order to properly "tune" our hyperparameter, k, we will perform an interative loop with 100 random samples and 90 different k-values. From there, we calculate the average model accuracy in order to choose the best k-value.*
 ```{r}
 ##################################################################
 # Loop for many k and the average of many training / test partition
@@ -269,22 +292,20 @@ for(j in 1:iterations)
   
 }
 ```
-\newline
-Based on the loop above, the following plot can be generated from the different k-values based on the 100 different random samples.
+Based on 100 random samples and 90 different hyperparameter values, our model is capable of up to 85% accuracy using the 5 closest points on the scatter plot for classification. This will be a very good way to test whether the new Budweiser IPA meets the requirements for what's considered an IPA by the craft beer market. 
 ```{r}
 MeanAcc = colMeans(masterAcc)
 
 plot(seq(1,numks,1),MeanAcc, type = "l")
-```
-\newline
-Based on the data plotted above, the optimal K-value is listed below, along with the maximum accuracy of the model.
-```{r}
+
 which.max(MeanAcc)
 max(MeanAcc)
 ```
 \newline
 # Part 9: IPA per 100k population (additional exploration).
-After creating our IPA estimation model, we will now do some additional exploratory analysis in order to find the best market to introduce a new Budweiser IPA beer. Initially, we will use the grep function to tally only IPA values and then filter our dataset accordingly.
+Now that we have created a way to classify and test our new IPA, we need to investigate the best market to perform product trials. 
+\newline
+*Initially, we will use the grep function to tally only IPA values and then filter our dataset accordingly.*
 ```{r}
 # Part 9: Additional Data Exploration
 # Plan - to count % IPA per total craft beers in each state.
@@ -302,7 +323,7 @@ cat_freq$state <- trimws(cat_freq$state)
 cat_freq <- merge(distinct(us_map(), full, abbr), cat_freq, by.x="abbr", by.y="state", all.x=TRUE) %>% mutate(n=replace_na(n, 0), freq=replace_na(freq, 0))
 ```
 \newline
-Next, let's calculate our relative frequency of IPA to total craft beers per state.
+*Next, let's calculate our relative frequency of IPA to total craft beers per state.*
 ```{r}
 # create percentage from frequency
 cat_freq$freq = round(cat_freq$freq, digits=4)*100
@@ -323,7 +344,7 @@ normalized_IPA <- normalized_IPA %>% mutate(IPA_per_100k = n/(Pop / 100000)) %>%
 normalized_IPA$hover <- with(normalized_IPA, paste(State, '<br>', "IPA Beers", n, "<br>","IPA % of total craft beers", freq,"%", "<br>", "Population Rank", rank, "<br>", "IPA per 100k", IPA_per_100k))
 ```
 \newline
-Based on this evidence, you'll see the following states are the best candidates for a trial run of Budeweiser IPA, according to population and IPA interest.
+Based on my calculations, you'll see the following states are the best individual candidates for a trial run of Budeweiser IPA, according to 2019 state population and IPA interest.
 ```{r}
 # displaying a table of top 5 markets for reference
 fig8 <- normalized_IPA %>% select(State, Pop, IPA_per_100k) %>% top_n(8)
@@ -337,7 +358,9 @@ fig8 %>% plot_ly(type='table',
 fig8
 ```
 \newline
-Now that we have normalized our dataset, let's identify the states with the best potential for the IPA release. You can see from the results below, that if we were to pick a region for the release instead of isolating to only the top five consumer states, it appears that the Pacific Northwest to Colorado may be the best market to enter with hard initial avoidance in the Southeast Region.
+Now that we have normalized our dataset, let's identify the region with the best potential for the IPA release. You can see from the results below, that if we were to combine the state IPA data to a particular region, it appears that the Pacific Northwest may be the best market to enter with hard initial avoidance in the Southeast Region. 
+\newline
+Because of the geographic launch to the West Coast, my recommendation is launch a **Budweiser West Coast IPA along the Pacific Northwest for trials before pushing the product eastward**. Before eastward expansion, it may prove beneficial to test the product in Vermont and trickle downward, hitting the southeast region once the product has been adequately developed for mass production. 
 ```{r}
 # displaying all US IPA markets on map
 fig9 <- plot_geo(normalized_IPA, locationmode = 'USA-states') %>%
