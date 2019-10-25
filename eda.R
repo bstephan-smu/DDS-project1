@@ -11,6 +11,7 @@ library(caret)
 library(e1071)
 library(class)
 library(usmap)
+library(randomForest)
 
 # set global theme
 # custom theme
@@ -42,10 +43,33 @@ beers <- data.frame(read.csv(beers_csv))
 breweries <- data.frame(read.csv(breweries_csv))
 
 # Question 1 - How many breweries are present in each state?
+
+# below is a bar chart of breweries per state
 per_state <- breweries %>% group_by(State) %>% tally(name="breweries_per_state") %>% arrange(desc(breweries_per_state))
 fig1 <- per_state %>% ggplot(aes(x=reorder(State, breweries_per_state), y=breweries_per_state)) + geom_bar(stat="identity", fill=bar_color) + ggtitle("Total Breweries per State") + ylab("Total Breweries") + xlab("State")
 
 ggplotly(fig1)
+
+# this is a choropleth of breweries per state
+per_state$State <- trimws(per_state$State)
+per_state$hover  <- with(per_state, paste(State, '<br>', "Breweries", breweries_per_state))
+fig1_2 <- plot_geo(per_state, locationmode = 'USA-states') %>%
+  add_trace(
+    z = ~breweries_per_state, text = ~hover, locations = ~State,
+    color = ~breweries_per_state, colors = 'Purples'
+  ) %>%
+  colorbar(title = "Breweries Per State") %>%
+  layout(
+    title = 'Breweries Per State in Map<br>(Hover for breakdown)',
+    geo = list(
+      scope = 'usa',
+      projection = list(type = 'albers usa'),
+      showlakes = TRUE,
+      lakecolor = toRGB('white')
+    )
+  )
+
+ggplotly(fig1_2)
 
 # Question 2: Merge Beer data with Breweries data. Print head(6) and tail(6)
 # Note: left join breweries on beers because 1-many relationship
@@ -86,6 +110,51 @@ fig3 <- medians %>% ggplot() + geom_bar(aes(x=reorder(state, -median_abv), y=med
 
 ggplotly(fig2)
 ggplotly(fig3)
+
+# Map for Median IBU per State
+
+medians$state <- trimws(medians$state)
+medians$hover  <- with(medians, paste(state, '<br>', "IBU", median_ibu))
+fig2_2 <- plot_geo(medians, locationmode = 'USA-states') %>%
+  add_trace(
+    z = ~median_ibu, text = ~hover, locations = ~state,
+    color = ~median_ibu, colors = 'Greens'
+  ) %>%
+  colorbar(title = "Median IBU per State") %>%
+  layout(
+    title = 'Median IBU per State in Map<br>(Hover for breakdown)',
+    geo = list(
+      scope = 'usa',
+      projection = list(type = 'albers usa'),
+      showlakes = TRUE,
+      lakecolor = toRGB('white')
+    )
+  )
+
+ggplotly(fig2_2)
+
+# Map for Median ABV per State
+
+medians$state <- trimws(medians$state)
+medians$hover  <- with(medians, paste(state, '<br>', "ABV", median_abv))
+fig3_2 <- plot_geo(medians, locationmode = 'USA-states') %>%
+  add_trace(
+    z = ~median_abv, text = ~hover, locations = ~state,
+    color = ~median_abv, colors = 'Reds'
+  ) %>%
+  colorbar(title = "Median ABV per State") %>%
+  layout(
+    title = 'Median ABV per State in Map<br>(Hover for breakdown)',
+    geo = list(
+      scope = 'usa',
+      projection = list(type = 'albers usa'),
+      showlakes = TRUE,
+      lakecolor = toRGB('white')
+    )
+  )
+
+ggplotly(fig3_2)
+
 
 #Part5: The State with max ABV and max IBU
 #The item with max ABV
@@ -134,6 +203,8 @@ ggplotly(fig7)
 
 #Select cols in IPA and Ale datasets and set group name
 #Group numbers: Ale--1, IPA--2
+
+
 test_Ale <- main_Ale %>% select(ibu,abv)
 test_Ale$flag = "ALE"
 test_IPA <- main_IPA %>% select(ibu,abv)
@@ -207,6 +278,75 @@ plot(seq(1,numks,1),MeanAcc, type = "l")
 
 which.max(MeanAcc)
 max(MeanAcc)
+
+# additional function to style confusion matrix
+draw_confusion_matrix <- function(cm) {
+  
+  layout(matrix(c(1,1,2)))
+  par(mar=c(2,2,2,2))
+  plot(c(100, 345), c(300, 450), type = "n", xlab="", ylab="", xaxt='n', yaxt='n')
+  title('CONFUSION MATRIX', cex.main=2)
+  
+  # create the matrix 
+  rect(150, 430, 240, 370, col='#66FCF1')
+  text(195, 435, 'Ale', cex=1.2)
+  rect(250, 430, 340, 370, col='#F7AD50')
+  text(295, 435, 'IPA', cex=1.2)
+  text(125, 370, 'Predicted', cex=1.3, srt=90, font=2)
+  text(245, 450, 'Actual', cex=1.3, font=2)
+  rect(150, 305, 240, 365, col='#F7AD50')
+  rect(250, 305, 340, 365, col='#66FCF1')
+  text(140, 400, 'Ale', cex=1.2, srt=90)
+  text(140, 335, 'IPA', cex=1.2, srt=90)
+  
+  # add in the cm results 
+  res <- as.numeric(cm$table)
+  text(195, 400, res[1], cex=1.6, font=2, col='white')
+  text(195, 335, res[2], cex=1.6, font=2, col='white')
+  text(295, 400, res[3], cex=1.6, font=2, col='white')
+  text(295, 335, res[4], cex=1.6, font=2, col='white')
+  
+  # add in the specifics 
+  plot(c(100, 0), c(100, 0), type = "n", xlab="", ylab="", main = "DETAILS", xaxt='n', yaxt='n')
+  text(10, 85, names(cm$byClass[1]), cex=1.2, font=2)
+  text(10, 70, round(as.numeric(cm$byClass[1]), 3), cex=1.2)
+  text(30, 85, names(cm$byClass[2]), cex=1.2, font=2)
+  text(30, 70, round(as.numeric(cm$byClass[2]), 3), cex=1.2)
+  text(50, 85, names(cm$byClass[5]), cex=1.2, font=2)
+  text(50, 70, round(as.numeric(cm$byClass[5]), 3), cex=1.2)
+  text(70, 85, names(cm$byClass[6]), cex=1.2, font=2)
+  text(70, 70, round(as.numeric(cm$byClass[6]), 3), cex=1.2)
+  text(90, 85, names(cm$byClass[7]), cex=1.2, font=2)
+  text(90, 70, round(as.numeric(cm$byClass[7]), 3), cex=1.2)
+  
+  # add in the accuracy information 
+  text(30, 35, names(cm$overall[1]), cex=1.5, font=2)
+  text(30, 20, round(as.numeric(cm$overall[1]), 3), cex=1.4)
+  text(70, 35, names(cm$overall[2]), cex=1.5, font=2)
+  text(70, 20, round(as.numeric(cm$overall[2]), 3), cex=1.4)
+} 
+
+draw_confusion_matrix(CM_k5)
+
+# now let's do some comparison with other machine learning methods
+## Classification Method 2: Native Bayes
+classifications_nb = naiveBayes(trainBeers[,c(1,2)],as.factor(trainBeers$flag))
+table(predict(classifications_nb,testBeers[,c(1,2)]),as.factor(testBeers$flag))
+CM_nb = confusionMatrix(table(predict(classifications_nb,testBeers[,c(1,2)]),as.factor(testBeers$flag)))
+draw_confusion_matrix(CM_nb)
+
+## Classification Method 3: SVM
+classifications_svm = svm(trainBeers[,c(1,2)],as.factor(trainBeers$flag))
+table(predict(classifications_svm,testBeers[,c(1,2)]),as.factor(testBeers$flag))
+CM_svm = confusionMatrix(table(predict(classifications_svm,testBeers[,c(1,2)]),testBeers$flag))
+draw_confusion_matrix(CM_svm)
+
+## Classification Method 4: RandomForest
+classifications_rf = randomForest(trainBeers[,c(1,2)],as.factor(trainBeers$flag),ntree=500)
+table(predict(classifications_rf,testBeers[,c(1,2)]),as.factor(testBeers$flag))
+CM_rf = confusionMatrix(table(predict(classifications_rf,testBeers[,c(1,2)]),testBeers$flag))
+draw_confusion_matrix(CM_rf)
+
 
 # Part 9: IPA per 100k population (additional exploration).
 # Part 9: Additional Data Exploration

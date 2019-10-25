@@ -24,6 +24,7 @@ library(caret)
 library(e1071)
 library(class)
 library(usmap)
+library(randomForest)
 ```
 \newline
 <p style="color:#99bbff">*First, we create some custom theme to ensure homogeneity throughout the presentation deck.*</p>
@@ -73,8 +74,33 @@ fig1 <- per_state %>% ggplot(aes(x=reorder(State, breweries_per_state), y=brewer
 
 ggplotly(fig1)
 ```
+Below is a choropleth of the brewery count per state to provide geographic representation of the barchart above.
+```{r}
+# this is a choropleth of breweries per state
+per_state$State <- trimws(per_state$State)
+per_state$hover  <- with(per_state, paste(State, '<br>', "Breweries", breweries_per_state))
+fig1_2 <- plot_geo(per_state, locationmode = 'USA-states') %>%
+  add_trace(
+    z = ~breweries_per_state, text = ~hover, locations = ~State,
+    color = ~breweries_per_state, colors = 'Purples'
+  ) %>%
+  colorbar(title = "Breweries Per State") %>%
+  layout(
+    title = 'Breweries Per State in Map<br>(Hover for breakdown)',
+    geo = list(
+      scope = 'usa',
+      projection = list(type = 'albers usa'),
+      showlakes = TRUE,
+      lakecolor = toRGB('white')
+    )
+  )
+
+ggplotly(fig1_2)
+```
 \newline
+
 # Part 2: Joining beer and brewery datasets.
+
 <p style="color:#99bbff">*Can we combine the data? What's it look like? In order to join the two dataframes, we called the "merge" function and joined the two dataframes on common keys - brewery_id and brew_id. We made sure to rename the columns for easier reuse and then displayed the results using an rbind function to combine the heads and tails of the resultant dataframe.*</p>
 In order to leverage our querying capabilities on the dataset, the two provided files have been joined together.
 ```{r}
@@ -104,13 +130,18 @@ print(colSums(is.na(main)))
 
 # Preserve a version of merged dataset by removing all NAs
 main_clean<-na.omit(main)
-
+```
+<p style="color:#99bbff">*Note: Because we were supposed to use approach #1, we did not use the corrected values for any of the machine learning analysis. We just wanted to provide these details to show more depth in our approach and provide an additional method that we could have followed*</p>
+You can see how by providing a median value, we were able to reduce the missing IBU values to 52 (see ibu_corr) and the missing ABV values to 0 (see abv_corr).
+```{r}
 # based on evidence, will use median abv and ibu per beer style to fill na
 main <- main %>% group_by(beer_style) %>% mutate(ibu_corr = ifelse(is.na(ibu), median(ibu, na.rm = TRUE), ibu), abv_corr = ifelse(is.na(abv), median(abv, na.rm = TRUE), abv))
 
 # let's see how we did...you will see all abv "corrected" and ibu had over 950 values "corrected"
 print(colSums(is.na(main)))
-
+```
+<p style="color:#99bbff">*We wrote the results to a csv in case we would like to reference later*</p>
+```{r}
 # Export the no-NAs file to a new csv file
 write.csv(main_clean,"./Brewery_and_Beer_Clean.csv", row.names = FALSE)
 ```
@@ -137,6 +168,55 @@ ggplotly(fig2)
 ggplotly(fig3)
 ```
 \newline
+Below are choropleths of median IBU and ABV per state to provide a geographic analysis of the bar charts above.
+```{r}
+# Map for Median IBU per State
+
+medians$state <- trimws(medians$state)
+medians$hover  <- with(medians, paste(state, '<br>', "IBU", median_ibu))
+fig2_2 <- plot_geo(medians, locationmode = 'USA-states') %>%
+  add_trace(
+    z = ~median_ibu, text = ~hover, locations = ~state,
+    color = ~median_ibu, colors = 'Greens'
+  ) %>%
+  colorbar(title = "Median IBU per State") %>%
+  layout(
+    title = 'Median IBU per State in Map<br>(Hover for breakdown)',
+    geo = list(
+      scope = 'usa',
+      projection = list(type = 'albers usa'),
+      showlakes = TRUE,
+      lakecolor = toRGB('white')
+    )
+  )
+
+ggplotly(fig2_2)
+
+# Map for Median ABV per State
+
+medians$state <- trimws(medians$state)
+medians$hover  <- with(medians, paste(state, '<br>', "ABV", median_abv))
+fig3_2 <- plot_geo(medians, locationmode = 'USA-states') %>%
+  add_trace(
+    z = ~median_abv, text = ~hover, locations = ~state,
+    color = ~median_abv, colors = 'Reds'
+  ) %>%
+  colorbar(title = "Median ABV per State") %>%
+  layout(
+    title = 'Median ABV per State in Map<br>(Hover for breakdown)',
+    geo = list(
+      scope = 'usa',
+      projection = list(type = 'albers usa'),
+      showlakes = TRUE,
+      lakecolor = toRGB('white')
+    )
+  )
+
+ggplotly(fig3_2)
+
+```
+
+\newline
 # Part 5: State with Max ABV and Max IBU.
 <p style="color:#99bbff">*In order to get an idea of the maximum values in the dataset, we perform a simple lookup of maximum abv and ibu for the dataset. We do this by utilizing "which" to look up the index of the max value specified. From there, we filter our dataset to only include that particular index.*</p>
 What are the limits for ABV and IBU levels of craft beer? How high are consumers willing to go? Based on the evidence provided in the dataset, it appears that the maximum ABV among the craft beers is 12.8% (~2.5x Budweiser) with a maximum IBU of 138 (11.5x Budweiser). 
@@ -155,7 +235,7 @@ print(paste0("The state has maximum bitterness beer is:", beer_MaxIbu$state, " w
 <p style="color:#99bbff">*To get an idea of the overall statistical distribution of the abv data, we then used "summary" to return a statistical summary of the abv data and then create a histogram to show normality and spread.*</p>
 \newline
 Looking further into the distribution of the ABV levels of craft beers, it appears that the average ABV of craft beer is 5.97%, with a slight right skew. According to the median, 50% of craft beers are between 0-5.6% ABV and another 50% are between 5.6 and 12.8%. 
-```{r}
+```{r message=FALSE}
 #Part6: The summary statistics and distribution of the ABV
 summary(main_clean$abv)
 fig4 <- main_clean %>% ggplot() + geom_histogram(aes(x=abv*100), fill=bar_color) + ggtitle("Distribution of ABV") + xlab("Percent ABV")
@@ -163,8 +243,10 @@ fig4 <- main_clean %>% ggplot() + geom_histogram(aes(x=abv*100), fill=bar_color)
 ggplotly(fig4)
 ```
 \newline
+
 # Part 7: Analysis of the relationship between ABV and IBU.
-Two of the most pricniple characteristics of beer are the ibu and abv measurements. What's the relationship between these two? In order to test for this, we created a scatterplot of abv vs. ibu. You can see that the positive correlation between the two suggests that higher alcohol content is common among higher abv beers.
+
+Two of the most principle characteristics of beer are the ibu and abv measurements. What's the relationship between these two? In order to test for this, we created a scatterplot of abv vs. ibu. You can see that the positive correlation between the two suggests that higher alcohol content is common among higher abv beers.
 ```{r}
 #Part7: Relationship between IBU and ABV?
 #Scatterplot
@@ -173,7 +255,9 @@ fig5 <- main_clean %>% ggplot(aes(ibu, abv*100)) + geom_point(colour=bar_color, 
 ggplotly(fig5)
 ```
 \newline
-# Part 8: KNN model creation based on IBU and ABV.
+
+# Part 8: KNN model and Machine Learning  Based on IBU and ABV.
+
 <p style="color:#99bbff">*The first steps are preparing the data by splitting and classifying accordingly.*</p>
 \newline
 Next, we will create an estimation model in order to classify beers (IPA vs. Non-IPA) based on their alchol and IBU levels. The method used here will be K-nearest neighbors, which will leverage classification of known beers to compare the test value to the known. This could help us in our investigation by assisting in labeling beer styles of various other samples in addition to testing if our new Budweiser IPA will meet similar ABV and IBU to the supplied IPA's in the dataset.
@@ -220,10 +304,11 @@ test_4KNN$flag <- as.factor(test_4KNN$flag)
 To further help with visualizing the IBU and ABV differences between IPA and non-IPA beers, we plotted the following scatter, colored by beer classification. You can see below how there are noticeable clusters being formed between IPA and non-IPA beers with the limit being somewhere around 50 IBU.
 ```{r}
 #Plot IPA and Ale datasets together in a single scatterplot
-test_4KNN %>% ggplot(mapping = aes(ibu, abv,color=test_4KNN$flag)) + geom_point(na.rm=TRUE) + geom_smooth(method=lm, se=FALSE, na.rm=TRUE, linetype="dashed") + scale_colour_manual(name="Beer Style", values=c("ALE" = "#FF652F","IPA" ="#14A76C")) + ggtitle("ABV vs. IBU by Beer Style: KNN Test")
+fig7_1 <- test_4KNN %>% ggplot(mapping = aes(ibu, abv,color=test_4KNN$flag)) + geom_point(na.rm=TRUE) + geom_smooth(method=lm, se=FALSE, na.rm=TRUE, linetype="dashed") + scale_colour_manual(name="Beer Style", values=c("ALE" = "#FF652F","IPA" ="#14A76C")) + ggtitle("ABV vs. IBU by Beer Style: KNN Test")
+ggplotly(fig7_1)
 ```
 \newline
-<p style="color:#99bbff">*Next, we will split our dataset into train-split subsets. We have specified that 70% will be used as training set, and 30% will be used for testing.*</p>
+<p style="color:#99bbff">*Next, we will split our dataset into train-split subsets. We have specified that 70% will be used as training set, and 30% will be used for testing. Additionally, the seed has been set to 123 for reproducibility.*</p>
 ```{r message=FALSE}
 #Divide dataset into train and test 
 set.seed(123)
@@ -232,37 +317,99 @@ trainBeers = test_4KNN[trainIndex,]
 testBeers = test_4KNN[-trainIndex,] 
 
 #Train Data Visualization
-trainBeers %>% ggplot(aes(x = abv,fill = flag)) + geom_histogram() + facet_grid(rows = vars(flag))
-trainBeers %>% ggplot(aes(x = ibu,fill = flag)) + geom_histogram() + facet_grid(rows = vars(flag))
+fig7_2 <- trainBeers %>% ggplot(aes(x = abv,fill = flag)) + geom_histogram() + facet_grid(rows = vars(flag))
+fig7_3 <- trainBeers %>% ggplot(aes(x = ibu,fill = flag)) + geom_histogram() + facet_grid(rows = vars(flag))
+
+ggplotly(fig7_2)
+ggplotly(fig7_3)
 ```
 \newline
 Let's examine our the KNN training data for correlation to ensure that we have selected proper classification parameters. You can see noticeable differences between the distributions of both groups, which is a great sign for our model.
 ```{r message=FALSE}
 trainBeers$flag = as.factor(trainBeers$flag)
-trainBeers %>% select(abv, ibu, flag) %>% ggpairs(aes(color = flag)) + ggtitle("Distribution of Ale and IPA IBU data")
+fig7_4 <- trainBeers %>% select(abv, ibu, flag) %>% ggpairs(aes(color = flag)) + ggtitle("Distribution of Ale and IPA IBU data")
+ggplotly(fig7_4)
 ```
 \newline
-Below is the initial KNN training model. You will see that the model does a pretty good job at classifying between the two (definitely better than a straight guess). Additionally, it appears to perform specificity and sensitivity are very similar suggesting that the model is likely very balanced in it's estimations.
+<p style="color:#99bbff">*Below is us actually running the KNN model. We will add commentary after running an additional function for aesethetic appeal. *</p>
 ```{r}
 ##Classification Method 1: KNN
 #Train the model (k=5)
 classifications = knn(trainBeers[c(1,2)],testBeers[c(1,2)],trainBeers$flag, prob = TRUE, k = 5)
 
 #The resulting confusion matrix
-table(testBeers[,'flag'],classifications)
 CM_k5 = confusionMatrix(table(testBeers[,'flag'],classifications))
-CM_k5
 ```
 \newline
-<p style="color:#99bbff">*The above is based on k-value is five...what about k is equal to ten? You can see here that the accuracy is the same, with the increased specificity offsetting a decrease in sensitivity.*</p>
+<p style="color:#99bbff">*Below is a function for creating an aesthetically appealing confusion matrix*</p>
+```{r}
+draw_confusion_matrix <- function(cm) {
+  
+  layout(matrix(c(1,1,2)))
+  par(mar=c(2,2,2,2))
+  plot(c(100, 345), c(300, 450), type = "n", xlab="", ylab="", xaxt='n', yaxt='n')
+  title('CONFUSION MATRIX', cex.main=2)
+  
+  # create the matrix 
+  rect(150, 430, 240, 370, col='#66FCF1')
+  text(195, 435, 'Ale', cex=1.2)
+  rect(250, 430, 340, 370, col='#F7AD50')
+  text(295, 435, 'IPA', cex=1.2)
+  text(125, 370, 'Predicted', cex=1.3, srt=90, font=2)
+  text(245, 450, 'Actual', cex=1.3, font=2)
+  rect(150, 305, 240, 365, col='#F7AD50')
+  rect(250, 305, 340, 365, col='#66FCF1')
+  text(140, 400, 'Ale', cex=1.2, srt=90)
+  text(140, 335, 'IPA', cex=1.2, srt=90)
+  
+  # add in the cm results 
+  res <- as.numeric(cm$table)
+  text(195, 400, res[1], cex=1.6, font=2, col='white')
+  text(195, 335, res[2], cex=1.6, font=2, col='white')
+  text(295, 400, res[3], cex=1.6, font=2, col='white')
+  text(295, 335, res[4], cex=1.6, font=2, col='white')
+  
+  # add in the specifics 
+  plot(c(100, 0), c(100, 0), type = "n", xlab="", ylab="", main = "DETAILS", xaxt='n', yaxt='n')
+  text(10, 85, names(cm$byClass[1]), cex=1.2, font=2)
+  text(10, 70, round(as.numeric(cm$byClass[1]), 3), cex=1.2)
+  text(30, 85, names(cm$byClass[2]), cex=1.2, font=2)
+  text(30, 70, round(as.numeric(cm$byClass[2]), 3), cex=1.2)
+  text(50, 85, names(cm$byClass[5]), cex=1.2, font=2)
+  text(50, 70, round(as.numeric(cm$byClass[5]), 3), cex=1.2)
+  text(70, 85, names(cm$byClass[6]), cex=1.2, font=2)
+  text(70, 70, round(as.numeric(cm$byClass[6]), 3), cex=1.2)
+  text(90, 85, names(cm$byClass[7]), cex=1.2, font=2)
+  text(90, 70, round(as.numeric(cm$byClass[7]), 3), cex=1.2)
+  
+  # add in the accuracy information 
+  text(30, 35, names(cm$overall[1]), cex=1.5, font=2)
+  text(30, 20, round(as.numeric(cm$overall[1]), 3), cex=1.4)
+  text(70, 35, names(cm$overall[2]), cex=1.5, font=2)
+  text(70, 20, round(as.numeric(cm$overall[2]), 3), cex=1.4)
+} 
+```
+\newline
+Below is the initial KNN training model. You will see that the model does a pretty good job at classifying between the two (definitely better than a straight guess). Additionally, it appears to perform specificity and sensitivity are very similar suggesting that the model is likely very balanced in it's estimations.
+
+### KNN: K=5
+
+```{r}
+draw_confusion_matrix(CM_k5)
+```
+\newline
+<p style="color:#99bbff">*Now let's run the same model with k=10.*</p>
+The above is based on k-value is five...what about k is equal to ten? You can see here that the accuracy is the same, with the increased specificity offsetting a decrease in sensitivity.
+
+### KNN: K=10
+
 ```{r}
 #Alternative K to train the model (k=10)
 classifications_k10 = knn(trainBeers[c(1,2)],testBeers[c(1,2)],trainBeers$flag, prob = TRUE, k = 10)
 
 #The resulting confusion matrix
-table(testBeers[,'flag'],classifications_k10)
 CM_k10 = confusionMatrix(table(testBeers[,'flag'],classifications_k10))
-CM_k10
+draw_confusion_matrix(CM_k10)
 ```
 \newline
 <p style="color:#99bbff">*In order to properly "tune" our hyperparameter, k, we will perform an interative loop with 100 random samples and 90 different k-values. From there, we calculate the average model accuracy in order to choose the best k-value.*</p>
@@ -291,18 +438,60 @@ for(j in 1:iterations)
   }
   
 }
-```
-Based on 100 random samples and 90 different hyperparameter values, our model is capable of up to 85% accuracy using the 5 closest points on the scatter plot for classification. This will be a very good way to test whether the new Budweiser IPA meets the requirements for what's considered an IPA by the craft beer market. 
-```{r}
+
 MeanAcc = colMeans(masterAcc)
 
 plot(seq(1,numks,1),MeanAcc, type = "l")
 
-which.max(MeanAcc)
-max(MeanAcc)
+k_opt <- which.max(MeanAcc)
+max_acc <- round(max(MeanAcc),4)*100
 ```
 \newline
+Based on 100 random samples and 90 different hyperparameter values, our model is capable of up to `r max_acc`% accuracy using the `r k_opt` closest points on the scatter plot for classification. This will be a very good way to test whether the new Budweiser IPA meets the requirements for what's considered an IPA by the craft beer market. 
+\newline
+How about other popular methods? Let's try some different models to see if any have any significantly better results. 
+\newline
+
+### Naive Bayes
+
+```{r}
+# now let's do some comparison with other machine learning methods
+## Classification Method 2: Naive Bayes
+classifications_nb = naiveBayes(trainBeers[,c(1,2)],as.factor(trainBeers$flag))
+CM_nb = confusionMatrix(table(predict(classifications_nb,testBeers[,c(1,2)]),as.factor(testBeers$flag)))
+draw_confusion_matrix(CM_nb)
+```
+\newline
+\newline
+
+### Support Vector Machine
+
+```{r}
+## Classification Method 3: SVM
+classifications_svm = svm(trainBeers[,c(1,2)],as.factor(trainBeers$flag))
+CM_svm = confusionMatrix(table(predict(classifications_svm,testBeers[,c(1,2)]),testBeers$flag))
+draw_confusion_matrix(CM_svm)
+```
+\newline
+\newline
+
+### Random Forest
+
+```{r}
+## Classification Method 4: RandomForest
+classifications_rf = randomForest(trainBeers[,c(1,2)],as.factor(trainBeers$flag),ntree=500)
+CM_rf = confusionMatrix(table(predict(classifications_rf,testBeers[,c(1,2)]),testBeers$flag))
+draw_confusion_matrix(CM_rf)
+```
+\newline
+\newline
+
+**Conclusion:** You can see that although some of the other methods might have had a slight increase in accuracy, they all had pretty similar results from a practical standpoint (+/- 3%). Therefore, our decision to proceed with a KNN model seems justified, however, we could adjust to another model with the same parameters and expect to maintain similar accuracy.
+\newline
+\newline
+
 # Part 9: IPA per 100k population (additional exploration).
+
 Now that we have created a way to classify and test our new IPA, we need to investigate the best market to perform product trials. 
 \newline
 <p style="color:#99bbff">*Initially, we will use the grep function to tally only IPA values and then filter our dataset accordingly.*</p>
@@ -345,7 +534,7 @@ normalized_IPA$hover <- with(normalized_IPA, paste(State, '<br>', "IPA Beers", n
 ```
 \newline
 Based on my calculations, you'll see the following states are the best individual candidates for a trial run of Budeweiser IPA, according to 2019 state population and IPA interest.
-```{r}
+```{r message=FALSE}
 # displaying a table of top 5 markets for reference
 fig8 <- normalized_IPA %>% select(State, Pop, IPA_per_100k) %>% top_n(8)
 fig8 %>% plot_ly(type='table',
@@ -355,7 +544,6 @@ fig8 %>% plot_ly(type='table',
                         values=t(unname(as.matrix(fig8))),
                         font = list(color = c('#506784'), size = 12)
                       ))
-fig8
 ```
 \newline
 Now that we have normalized our dataset, let's identify the region with the best potential for the IPA release. You can see from the results below, that if we were to combine the state IPA data to a particular region, it appears that the Pacific Northwest may be the best market to enter with hard initial avoidance in the Southeast Region. 
