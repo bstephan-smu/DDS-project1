@@ -1,3 +1,3 @@
 # DDS-project1
-A exploration into brewery datasets. Project 1 for Doing Data Science
+An exploratory data analysis on suggestion of new Budweiser IPA line.
 --by: Branum Stephan, Yang Zhang
