@@ -1,7 +1,3 @@
-
-# The following is an exploratory data analysis performed by Branum Stephan and Yang Zhang
-# Doing Data Science - fall 2019
-
 library(dplyr)
 library(here)
 library(ggplot2)
@@ -22,8 +18,8 @@ bg_color = "#0B0C10"
 bar_color = "#66FCF1"
 text_main = "#FFFFF"
 text_ticks = "#CFC6C7"
-axis_lines = "#453a3b"
-  cust_theme <- ggplot2::theme(plot.title = element_text(color = 'white', vjust=0.5, hjust=0.5),
+axis_lines = #453a3b"
+  cust_theme <- theme(plot.title = element_text(color = 'white', vjust=0.5, hjust=0.5),
                       plot.background = element_rect(fill = bg_color),
                       panel.background = element_rect(fill = bg_color),
                       axis.text.x=element_text(angle=90,hjust=1),
@@ -82,7 +78,6 @@ write.csv(main_clean,"./Brewery_and_Beer_Clean.csv", row.names = FALSE)
 medians <- main_clean %>% group_by(state) %>% summarise(median_abv = median(abv), median_ibu = median(ibu))
 
 #Bar_Chart_Plotter
-
 # ibu bar plot
 fig2 <- medians %>% ggplot() + geom_bar(aes(x=reorder(state, -median_ibu), y=median_ibu), stat="identity", fill=bar_color) + ggtitle("Median IBU per State") +ylab("Median IBU") + xlab("State") 
 
@@ -91,7 +86,6 @@ fig3 <- medians %>% ggplot() + geom_bar(aes(x=reorder(state, -median_abv), y=med
 
 ggplotly(fig2)
 ggplotly(fig3)
-
 
 #Part5: The State with max ABV and max IBU
 #The item with max ABV
@@ -150,8 +144,6 @@ test_4KNN$flag <- as.factor(test_4KNN$flag)
 #Plot IPA and Ale datasets together in a single scatterplot
 test_4KNN %>% ggplot(mapping = aes(ibu, abv,color=test_4KNN$flag)) + geom_point(na.rm=TRUE) + geom_smooth(method=lm, se=FALSE, na.rm=TRUE, linetype="dashed") + scale_colour_manual(name="Beer Style", values=c("ALE" = "#FF652F","IPA" ="#14A76C")) + ggtitle("ABV vs. IBU by Beer Style: KNN Test")
 
-
-
 #Divide dataset into train and test 
 set.seed(123)
 trainIndex = sample(seq(1:937), 650)
@@ -173,6 +165,8 @@ classifications = knn(trainBeers[c(1,2)],testBeers[c(1,2)],trainBeers$flag, prob
 table(testBeers[,'flag'],classifications)
 CM_k5 = confusionMatrix(table(testBeers[,'flag'],classifications))
 
+CM_k5
+
 #Alternative K to train the model (k=10)
 classifications_k10 = knn(trainBeers[c(1,2)],testBeers[c(1,2)],trainBeers$flag, prob = TRUE, k = 10)
 
@@ -180,6 +174,7 @@ classifications_k10 = knn(trainBeers[c(1,2)],testBeers[c(1,2)],trainBeers$flag, 
 table(testBeers[,'flag'],classifications_k10)
 CM_k10 = confusionMatrix(table(testBeers[,'flag'],classifications_k10))
 
+CM_k10
 
 ##################################################################
 # Loop for many k and the average of many training / test partition
@@ -213,15 +208,15 @@ plot(seq(1,numks,1),MeanAcc, type = "l")
 which.max(MeanAcc)
 max(MeanAcc)
 
+# Part 9: IPA per 100k population (additional exploration).
 # Part 9: Additional Data Exploration
 # Plan - to count % IPA per total craft beers in each state.
 
 # finding the beers containing "IPA" in their style and tallying
-cat_freq <- main %>% mutate(category=
-  case_when(
-    grepl("IPA", beer_style) ~ "IPA",
-    TRUE ~ "OTHER"
-  )
+cat_freq <- main %>% mutate(category=case_when(
+                                grepl("IPA", beer_style) ~ "IPA",
+                                TRUE ~ "OTHER"
+                              )
 ) %>% group_by(state, category) %>% summarise(n=n()) %>% mutate(freq = n/sum(n)) %>% filter(category=="IPA")
 cat_freq$state <- trimws(cat_freq$state)
 
@@ -231,10 +226,6 @@ cat_freq <- merge(distinct(us_map(), full, abbr), cat_freq, by.x="abbr", by.y="s
 # create percentage from frequency
 cat_freq$freq = round(cat_freq$freq, digits=4)*100
 
-# after realizing the impact of population on market potential, I downloaded the 2019 consensus data in order to perform a "correction"
-# for state population. My goal was to find the highest population state with the highest interest in IPA in order to introduce the new
-# Budweiser IPA to the largest potential audience for trials.
-
 # creatig dataframe from state consensus
 state_pop <- data.frame(read.csv(here("project_files", "2019 consensus data.csv")))
 
@@ -242,40 +233,42 @@ state_pop <- data.frame(read.csv(here("project_files", "2019 consensus data.csv"
 normalized_IPA <- merge(state_pop, cat_freq, by.x="State", by.y="full")
 
 # normalizing IPA count per 100k state population
-normalized_IPA <- normalized_IPA %>% mutate(IPA_per_100k = n/(Pop/100000)) %>% arrange(desc(IPA_per_100k))
+normalized_IPA <- normalized_IPA %>% mutate(IPA_per_100k = n/(Pop / 100000)) %>% arrange(desc(IPA_per_100k))
 
 # creating a hover tag for the map
 normalized_IPA$hover <- with(normalized_IPA, paste(State, '<br>', "IPA Beers", n, "<br>","IPA % of total craft beers", freq,"%", "<br>", "Population Rank", rank, "<br>", "IPA per 100k", IPA_per_100k))
 
+
 # displaying a table of top 5 markets for reference
-fig8 <- normalized_IPA %>% select(State, Pop, IPA_per_100k) %>% top_n(5)
+fig8 <- normalized_IPA %>% select(State, Pop, IPA_per_100k) %>% top_n(8)
 fig8 %>% plot_ly(type='table',
-                      header = list(
-                        values = c("State", sprintf("State Population (%s Sample Size)",sum(fig8$Pop)), "IPA per 100k People")),
-                      cells=list(
-                        values=t(unname(as.matrix(fig8))),
-                        font = list(color = c('#506784'), size = 12)
-                      ))
+                 header = list(
+                   values = c("State", sprintf("State Population (%s Sample Size)",sum(fig8$Pop)), "IPA per 100k People")),
+                 cells=list(
+                   values=t(unname(as.matrix(fig8))),
+                   font = list(color = c('#506784'), size = 12)
+                 ))
 fig8
-  
+
 # displaying all US IPA markets on map
 fig9 <- plot_geo(normalized_IPA, locationmode = 'USA-states') %>%
-  add_trace(
-    z = ~IPA_per_100k, text=~hover, locations = ~abbr,
-    color = ~IPA_per_100k,
-    marker = list(line = list(color = toRGB("white"), width = 0.75)),colorscale='MAGMA'
-  ) %>%
-  colorbar(title = "IPA") %>%
-  layout(
-    title = 'IPA count per 100k',
-    font = list(color = 'white'),
-    geo=list(
-      scope = 'usa',
-      projection = list(type = 'albers usa'),
-      showlakes = TRUE,
-      bgcolor=toRGB(bg_color, alpha = 1)),
-    paper_bgcolor=toRGB(bg_color, alpha = 1),
-    margin=list(l=20, r=20, t=60, b=20)
-  )
+add_trace(
+z = ~IPA_per_100k, text=~hover, locations = ~abbr,
+color = ~IPA_per_100k,
+marker = list(line = list(color = toRGB(bg_color), width = 2.25)),colorscale='MAGMA'
+) %>%
+colorbar(title = "IPA") %>%
+layout(
+title = 'IPA count per 100k',
+font = list(color = 'white'),
+geo=list(
+scope = 'usa',
+projection = list(type = 'albers usa'),
+showlakes = FALSE,
+bgcolor=toRGB(bg_color, alpha = 1)),
+paper_bgcolor=toRGB(bg_color, alpha = 1),
+margin=list(l=20, r=20, t=60, b=20)
+)
 
 fig9
+
