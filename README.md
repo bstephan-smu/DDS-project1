@@ -40,4 +40,18 @@ In this report, we investigated the Beers dataset contains a list of 2410 US cra
 
 9. Knock their socks off!  Find one other useful inference from the data that you feel Budweiser may be able to find value in.  You must convince them why it is important and back up your conviction with appropriate statistical evidence. 
 
+## Conclusions
+
+1. Some states have much more breweries than others, “CO” is the state with largest number of breweries.
+
+2. IBU are missing in roughly half of the data collection. Because these are both critical measurements for beer classification, we provided both a traditional approach as well as a simplified approach to address missing values. 
+
+3. The scatterplot of ABV vs. IBU shows positive correlation. Additional evidence supports the claim that they can be used to differentiate IPA vs. non-IPA beers.
+
+4. Using the ABV and IBU as parameters for KNN clustering, model accuracy reached upward of 85%. IPA’s proved to be higher in both ABV and IBU in most cases. 
+
+5. By investing in the IPA craze across the nation, we recognize that the potential top 5 markets: Vermont, Colorado, Alaska, Montana and Oregon, could be great test subjects for a Budweiser IPA.
+
+6. If we would prefer to target specific regions, we recommend the Pacific Northwest as the best market to enter, and wouldn’t  recommend the Southeast Region until we are more confident in mass production of the new product.
+
 
